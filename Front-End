@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body {
+        font-family: 'Segoe UI', Roboto, sans-serif;
+        background-color: #FBC365;
+        margin: 0;
+        padding: 0;
+      }
+
+      header {
+        background-color: #fff;
+        padding: 20px;
+        text-align: center;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      }
+
+      header h1 {
+        color: #333;
+        margin: 0;
+      }
+
+      .filter-bar {
+        text-align: center;
+        padding: 20px;
+        background-color: #fff8e0;
+        border-top: 1px solid #eee;
+        border-bottom: 1px solid #eee;
+      }
+
+      .filter-bar select {
+        font-size: 16px;
+        padding: 10px 15px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+      }
+
+      .product-grid {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        padding: 20px;
+        gap: 20px;
+      }
+
+      .product {
+        background-color: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        width: 280px;
+        height: 540px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 20px;
+        text-align: center;
+        transition: transform 0.2s ease-in-out;
+      }
+
+      .product:hover {
+        transform: scale(1.02);
+      }
+
+      .product img {
+        width: 100%;
+        height: 180px;
+        object-fit: cover;
+        border-radius: 10px;
+        margin-bottom: 10px;
+      }
+
+      .product h3 {
+        margin: 10px 0 5px;
+        font-size: 18px;
+        color: #222;
+        height: 40px;
+        overflow: hidden;
+      }
+
+      .product p {
+        font-size: 14px;
+        color: #555;
+        min-height: 40px;
+      }
+
+      input[type="text"],
+      input[type="email"],
+      input[type="number"] {
+        width: 90%;
+        padding: 10px;
+        margin: 6px 0;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        font-size: 14px;
+      }
+
+      button {
+        background-color: #4CAF50;
+        color: white;
+        padding: 10px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+
+      button:hover {
+        background-color: #3ea043;
+      }
+
+      #products p {
+        font-style: italic;
+        text-align: center;
+        padding-top: 40px;
+        color: #666;
+      }
+    </style>
+
+    <script>
+      function init() {
+        loadProducts();
+      }
+
+      function loadProducts() {
+        google.script.run.withSuccessHandler(renderProducts).fetchProductsFromAirtable();
+      }
+
+      function renderProducts(products) {
+        const container = document.getElementById("products");
+        const selectedPeriod = document.getElementById("annivFilter").value;
+
+        const filtered = products.filter(p =>
+          selectedPeriod === "all" || String(p.annivPeriod) === selectedPeriod
+        );
+
+        container.innerHTML = "";
+
+        if (!Array.isArray(filtered) || filtered.length === 0) {
+          container.innerHTML = "<p>⚠️ No products found for this anniversary tier.</p>";
+          return;
+        }
+
+        filtered.forEach(p => {
+          container.innerHTML += `
+            <div class="product">
+              <img src="${p.image}" alt="${p.name}">
+              <h3>${p.name}</h3>
+              <p>${p.description}</p>
+              <p><strong>$${p.price.toFixed(2)}</strong></p>
+              <input type="text" id="name-${p.id}" placeholder="Your Name" required />
+              <input type="email" id="email-${p.id}" placeholder="Your Email" required />
+              <input type="number" id="qty-${p.id}" min="1" value="1" />
+              <button onclick="submitOrder('${p.id}')">Choose</button>
+            </div>
+          `;
+        });
+      }
+
+      function submitOrder(id) {
+        const name = document.getElementById(`name-${id}`).value;
+        const email = document.getElementById(`email-${id}`).value;
+        const qty = parseInt(document.getElementById(`qty-${id}`).value);
+
+        if (!name || !email || qty < 1) {
+          alert("⚠️ Please complete all fields correctly.");
+          return;
+        }
+
+        google.script.run.withSuccessHandler(() => {
+          alert("✅ Your choice has been submitted!");
+        }).placeOrder(id, qty, name, email);
+      }
+
+      window.onload = init;
+    </script>
+  </head>
+
+  <body>
+    <header>
+      <h1>🎁 Staffinc Gift Catalogue</h1>
+    </header>
+
+    <div class="filter-bar">
+      <label for="annivFilter"><strong>Filter by Anniversary:</strong></label>
+      <select id="annivFilter" onchange="loadProducts()">
+        <option value="all">All</option>
+        <option value="1">1st Year</option>
+        <option value="2">2nd Year</option>
+        <option value="3">3rd Year</option>
+        <option value="4">4th Year</option>
+        <option value="5">5th Year</option>
+        <option value="6">6th Year</option>
+        <option value="7">7th Year</option>
+        <option value="8">8th Year</option>
+        <option value="9">9th Year</option>
+        <option value="10">10th Year</option>
+      </select>
+    </div>
+
+    <div id="products" class="product-grid">Loading products...</div>
+  </body>
+</html>
