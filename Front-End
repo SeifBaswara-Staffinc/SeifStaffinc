@@ -1,205 +1,171 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <base target="_top">
-    <style>
-      body {
-        font-family: 'Segoe UI', Roboto, sans-serif;
-        background-color: #FBC365;
-        margin: 0;
-        padding: 0;
+function myFunction() {
+  const AIRTABLE_TOKEN_ID = 'patTcyeGADERsq7Oc.de437ceaa43b0793c74fda16185f797f827ba7043ef4e5d5e9a4ce804a70b07b';
+  const AIRTABLE_BASE_ID = 'apppnxiM0rEHvsurx';
+  const AIRTABLE_TABLE_NAME = 'tblNohpxhsWecjWbM';
+  const AIRTABLE_API_URL = 'https://api.airtable.com/v0';
+  let spreadSheetData = [];
+  let airTableData = [];
+
+  function getSpreadSheetData() {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    const data = sheet.getDataRange().getValues();
+    const headers = data[1];
+
+    for (let i = 2; i < data.length; i++) {
+      let row = data[i];
+      let record = {};
+
+      for (let j = 0; j < 4; j++) {
+        record[headers[j]] = row[j];
       }
 
-      header {
-        background-color: #fff;
-        padding: 20px;
-        text-align: center;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      spreadSheetData.push(record);
+    }
+  }
+
+  function getAirtableRecordData() {
+    var offset = '';
+    const url = `${AIRTABLE_API_URL}/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}`;
+
+    do {
+      var fullUrl = offset ? `${url}?offset=${encodeURIComponent(offset)}` : url;
+
+      const options = {
+        method: 'get',
+        headers: {
+          Authorization: `Bearer ${AIRTABLE_TOKEN_ID}`,
+        },
+        muteHttpExceptions: true,
+      };
+
+      const response = UrlFetchApp.fetch(fullUrl, options);
+      const result = JSON.parse(response.getContentText());
+
+      if (result && result.records && Array.isArray(result.records)) {
+        airTableData = airTableData.concat(result.records);
+
+        offset = result.offset || '';
+      } else {
+          Logger.log("No records found in the current response.");
+          break;
+      }
+    } while (offset);
+
+    processAirTableData();
+  }
+
+  function processAirTableData() {
+    airTableData.forEach(airTable => {
+      const data = spreadSheetData.find(item => item.Email == airTable.fields.Email);
+
+      if (!data) {
+        deleteAirTableData(airTable.id);
+
+        return;
       }
 
-      header h1 {
-        color: #333;
-        margin: 0;
-      }
-
-      .filter-bar {
-        text-align: center;
-        padding: 20px;
-        background-color: #fff8e0;
-        border-top: 1px solid #eee;
-        border-bottom: 1px solid #eee;
-      }
-
-      .filter-bar select {
-        font-size: 16px;
-        padding: 10px 15px;
-        border-radius: 8px;
-        border: 1px solid #ccc;
-      }
-
-      .product-grid {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        padding: 20px;
-        gap: 20px;
-      }
-
-      .product {
-        background-color: #fff;
-        border-radius: 12px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        width: 280px;
-        height: 540px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        padding: 20px;
-        text-align: center;
-        transition: transform 0.2s ease-in-out;
-      }
-
-      .product:hover {
-        transform: scale(1.02);
-      }
-
-      .product img {
-        width: 100%;
-        height: 180px;
-        object-fit: cover;
-        border-radius: 10px;
-        margin-bottom: 10px;
-      }
-
-      .product h3 {
-        margin: 10px 0 5px;
-        font-size: 18px;
-        color: #222;
-        height: 40px;
-        overflow: hidden;
-      }
-
-      .product p {
-        font-size: 14px;
-        color: #555;
-        min-height: 40px;
-      }
-
-      input[type="text"],
-      input[type="email"],
-      input[type="number"] {
-        width: 90%;
-        padding: 10px;
-        margin: 6px 0;
-        border: 1px solid #ccc;
-        border-radius: 8px;
-        font-size: 14px;
-      }
-
-      button {
-        background-color: #4CAF50;
-        color: white;
-        padding: 10px;
-        border: none;
-        border-radius: 8px;
-        font-size: 16px;
-        cursor: pointer;
-        margin-top: 10px;
-      }
-
-      button:hover {
-        background-color: #3ea043;
-      }
-
-      #products p {
-        font-style: italic;
-        text-align: center;
-        padding-top: 40px;
-        color: #666;
-      }
-    </style>
-
-    <script>
-      function init() {
-        loadProducts();
-      }
-
-      function loadProducts() {
-        google.script.run.withSuccessHandler(renderProducts).fetchProductsFromAirtable();
-      }
-
-      function renderProducts(products) {
-        const container = document.getElementById("products");
-        const selectedPeriod = document.getElementById("annivFilter").value;
-
-        const filtered = products.filter(p =>
-          selectedPeriod === "all" || String(p.annivPeriod) === selectedPeriod
-        );
-
-        container.innerHTML = "";
-
-        if (!Array.isArray(filtered) || filtered.length === 0) {
-          container.innerHTML = "<p>⚠️ No products found for this anniversary tier.</p>";
-          return;
+      if (data) {
+        const payload = {
+          "fields": {
+            "Name": data.Nama_Lengkap,
+            "Email": data.Email,
+            "Department": data.Department,
+            "Join Date": data.Join_Date
+          }
         }
-
-        filtered.forEach(p => {
-          container.innerHTML += `
-            <div class="product">
-              <img src="${p.image}" alt="${p.name}">
-              <h3>${p.name}</h3>
-              <p>${p.description}</p>
-              <p><strong>$${p.price.toFixed(2)}</strong></p>
-              <input type="text" id="name-${p.id}" placeholder="Your Name" required />
-              <input type="email" id="email-${p.id}" placeholder="Your Email" required />
-              <input type="number" id="qty-${p.id}" min="1" value="1" />
-              <button onclick="submitOrder('${p.id}')">Choose</button>
-            </div>
-          `;
-        });
+        updateAirTableData(airTable.id, payload);
+        
+        return;
       }
+    });  
+  }
 
-      function submitOrder(id) {
-        const name = document.getElementById(`name-${id}`).value;
-        const email = document.getElementById(`email-${id}`).value;
-        const qty = parseInt(document.getElementById(`qty-${id}`).value);
+  function updateAirTableData(id, payload) {
+    const url = `${AIRTABLE_API_URL}/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}/${id}`;
 
-        if (!name || !email || qty < 1) {
-          alert("⚠️ Please complete all fields correctly.");
-          return;
-        }
+    const options = {
+      method: 'patch',
+      contentType: 'application/json',
+      headers: {
+        Authorization: `Bearer ${AIRTABLE_TOKEN_ID}`,
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true,
+    };
 
-        google.script.run.withSuccessHandler(() => {
-          alert("✅ Your choice has been submitted!");
-        }).placeOrder(id, qty, name, email);
-      }
+    try {
+      const response = UrlFetchApp.fetch(url, options);
+    } catch (e) {
+      Logger.log(e)
+    }
+  }
 
-      window.onload = init;
-    </script>
-  </head>
+  function deleteAirTableData(id) {
+    const url = `${AIRTABLE_API_URL}/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}/${id}`;
 
-  <body>
-    <header>
-      <h1>🎁 Staffinc Gift Catalogue</h1>
-    </header>
+    const options = {
+      method: 'delete',
+      contentType: 'application/json',
+      headers: {
+        Authorization: `Bearer ${AIRTABLE_TOKEN_ID}`,
+      },
+      muteHttpExceptions: true,
+    };
 
-    <div class="filter-bar">
-      <label for="annivFilter"><strong>Filter by Anniversary:</strong></label>
-      <select id="annivFilter" onchange="loadProducts()">
-        <option value="all">All</option>
-        <option value="1">1st Year</option>
-        <option value="2">2nd Year</option>
-        <option value="3">3rd Year</option>
-        <option value="4">4th Year</option>
-        <option value="5">5th Year</option>
-        <option value="6">6th Year</option>
-        <option value="7">7th Year</option>
-        <option value="8">8th Year</option>
-        <option value="9">9th Year</option>
-        <option value="10">10th Year</option>
-      </select>
-    </div>
+    try {
+      const response = UrlFetchApp.fetch(url, options);
+      Logger.log(JSON.parse(response));
+    } catch (e) {
+      Logger.log(e)
+    }
+  }
 
-    <div id="products" class="product-grid">Loading products...</div>
-  </body>
-</html>
+  function getRecordToAirTable() {
+    const airTableEmails = new Set(airTableData.map(record => record.fields.Email));
+
+    const filteredSpreadsheetData = spreadSheetData.filter(
+      record => !airTableEmails.has(record.Email) && record.Email != ''
+    );
+
+    if (filteredSpreadsheetData.length > 0) {
+      createAirTableData(filteredSpreadsheetData);
+    }
+  }
+
+  function createAirTableData(data) {
+    const url = `${AIRTABLE_API_URL}/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}`;
+
+    const payload = {
+      "records": data.map(entry => ({
+          fields: {
+            "Email": entry.Email,
+            "Join Date": entry.Join_Date,
+            "Name": entry.Nama_Lengkap,
+            "Department": entry.Department
+          }
+        }))
+    }
+
+    const options = {
+      method: 'post',
+      contentType: 'application/json',
+      headers: {
+        Authorization: `Bearer ${AIRTABLE_TOKEN_ID}`,
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true,
+    };
+
+    try {
+      const response = UrlFetchApp.fetch(url, options);
+      Logger.log(JSON.parse(response));
+    } catch (e) {
+      Logger.log(e)
+    }
+  }
+
+  getSpreadSheetData();
+  getAirtableRecordData();
+  getRecordToAirTable();
+}
+mm
